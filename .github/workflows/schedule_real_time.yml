@@ -30,9 +30,13 @@ jobs:
           echo "📂 Listing All Files and Folders in Workspace:"
           ls -R $GITHUB_WORKSPACE
 
+      # ✅ Create Google Sheets Credentials File FIRST
+      - name: Create Google Sheets Credentials File
+        run: echo "$GOOGLE_SHEETS_CREDENTIALS" > gspread_credentials.json
+
+      # ✅ Run Real-Time Function and Save Data
       - name: Run Real-Time Function and Save Data
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
         run: |
-          echo "$GOOGLE_APPLICATION_CREDENTIALS" > gspread_credentials.json
           python $GITHUB_WORKSPACE/record_real_time.py  # ✅ Corrected Path
