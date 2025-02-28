@@ -124,40 +124,26 @@ model_input = model_input[[col for col in xgb_model.feature_names_in_]]
 # 🔹 Run Prediction
 prediction = xgb_model.predict(model_input)[0]
 
-# 🔹 Save Data to Google Sheets
-timestamp = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S")
-
-# Run Prediction
-prediction = xgb_model.predict(model_input)[0]
-
-# Define the US Central Time Zone
 central_tz = pytz.timezone('America/Chicago')
 
-# Convert UTC to Central Time
-timestamp = datetime.now(timezone.utc).astimezone(central_tz).strftime("%Y-%m-%d %H:%M:%S")
+# Get the current time in Central Time (formatted as a string)
+timestamp_str = datetime.now(timezone.utc).astimezone(central_tz).strftime("%Y-%m-%d %H:%M:%S")
 
-# ✅ Authenticate with Google Sheets
+# Authenticate with Google Sheets using the credentials file created by GitHub Actions
 gc = gspread.service_account(filename="gspread_credentials.json")
-sheet = gc.open("sugar_creek_data").sheet1  # Open first sheet
+sheet = gc.open("sugar_creek_data").sheet1  # Open the sheet by its exact name
 
-# Define the US Central Time Zone
-central_tz = pytz.timezone('America/Chicago')
-
-# Convert UTC to Central Time
-timestamp = datetime.now(timezone.utc).astimezone(central_tz).strftime("%Y-%m-%d %H:%M:%S")
-
-# ✅ Fetch all existing timestamps to check for duplicates
+# Fetch all existing timestamps (skip header row)
 existing_data = sheet.get_all_values()
-timestamps = [row[0] for row in existing_data[1:]]  # Skip header row
+existing_timestamps = [row[0] for row in existing_data[1:]]  # assuming row[0] is the timestamp
 
-if timestamp_str in timestamps:
-    # ✅ If timestamp exists, update the existing row
-    row_index = timestamps.index(timestamp_str) + 2  # Offset for 1-based index & header
+# Check if the current timestamp already exists
+if timestamp_str in existing_timestamps:
+    # If it exists, update that row
+    row_index = existing_timestamps.index(timestamp_str) + 2  # +2 accounts for header row and 1-indexing
     sheet.update(f"A{row_index}:C{row_index}", [[timestamp_str, "Sugar_Creek_Prediction", float(prediction)]])
 else:
-    # ✅ If timestamp does not exist, append a new row
+    # If it does not exist, append a new row
     sheet.append_row([timestamp_str, "Sugar_Creek_Prediction", float(prediction)])
 
 print("✅ Data successfully recorded to Google Sheets.")
-
-
