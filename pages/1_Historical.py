@@ -85,22 +85,20 @@ selected_datetime = datetime.combine(selected_date, datetime.min.time()).replace
 # Convert to UTC (assuming input is local time)
 selected_datetime_utc = selected_datetime.astimezone(timezone.utc)
 
-# Format for USGS API
-usgs_formatted_datetime = selected_datetime_utc.strftime('%Y-%m-%dT%H:%M:%SZ')  # Explicit UTC conversion before formatting
+# Explicitly format UTC before sending to USGS API
+usgs_formatted_datetime = selected_datetime_utc.strftime('%Y-%m-%dT%H:%M:%SZ')
 
-# Compute Lag1, Lag3, and Lag7 timestamps
+# Compute Lag1, Lag3, and Lag7 timestamps using UTC
 lag1_datetime_utc = (selected_datetime_utc - timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
 lag3_datetime_utc = (selected_datetime_utc - timedelta(days=3)).strftime('%Y-%m-%dT%H:%M:%SZ')
 lag7_datetime_utc = (selected_datetime_utc - timedelta(days=7)).strftime('%Y-%m-%dT%H:%M:%SZ')
 
+# Debugging Output
 with st.expander("📊 Debugging & Logged Data"):
     st.write("#### Selected Inputs & Converted Timestamps")
-    st.write(f"Selected Date: {selected_date_str}")
-    st.write(f"Selected Time: {selected_hour}:{selected_minute} {am_pm}")
-    st.write(f"Converted 24-Hour Time: {hour_24}:{selected_minute}")
     st.write(f"Selected Datetime (Local): {selected_datetime}")
-    st.write(f"Selected Datetime (UTC for USGS API): {selected_datetime_utc}")
-    st.write(f"USGS Formatted Datetime: {usgs_formatted_datetime}")
+    st.write(f"Selected Datetime (UTC for USGS API): {selected_datetime_utc}")  # ✅ Explicit UTC Conversion
+    st.write(f"USGS Formatted Datetime: {usgs_formatted_datetime}")  # ✅ Ensuring UTC before API call
     st.write(f"Lag1 Datetime (UTC for USGS API): {lag1_datetime_utc}")
     st.write(f"Lag3 Datetime (UTC for USGS API): {lag3_datetime_utc}")
     st.write(f"Lag7 Datetime (UTC for USGS API): {lag7_datetime_utc}")
