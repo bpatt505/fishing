@@ -127,9 +127,7 @@ prediction = xgb_model.predict(model_input)[0]
 timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
 for creek, value in real_time_data.items():
-import gspread
-from datetime import datetime
-
+    
 # ✅ Authenticate with Google Sheets
 gc = gspread.service_account(filename="gspread_credentials.json")
 sheet = gc.open("Your_Spreadsheet_Name").sheet1  # Open first sheet
@@ -150,4 +148,5 @@ else:
     sheet.append_row([timestamp_str, "Sugar_Creek_Prediction", float(prediction)])
 
 print("✅ Data successfully recorded to Google Sheets.")
+
 
