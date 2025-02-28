@@ -9,7 +9,7 @@ import xgboost as xgb
 from datetime import datetime, timezone, timedelta
 
 # 🔹 Google Sheets Configuration
-SHEET_NAME = "Fishing_Predictions"
+SHEET_NAME = "sugar_creek_data"
 CREDENTIALS_FILE = "gspread_credentials.json"  # Ensure this file is in your repo!
 
 # 🔹 Load Google Sheets Credentials
