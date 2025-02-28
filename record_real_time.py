@@ -1,3 +1,4 @@
+import json
 import os
 import pickle
 import pandas as pd
@@ -11,18 +12,22 @@ from datetime import datetime, timezone, timedelta
 
 # 🔹 Google Sheets Configuration
 SHEET_NAME = "sugar_creek_data"
-CREDENTIALS_FILE = "gspread_credentials.json"  # Ensure this file is in your repo!
 
-# ✅ Check if credentials file exists and is not empty
-if not os.path.exists(CREDENTIALS_FILE) or os.stat(CREDENTIALS_FILE).st_size == 0:
-    print("❌ Google Sheets credentials file is missing or empty.")
+# ✅ Load Google Sheets Credentials from ENV variable
+try:
+    credentials_json = os.getenv("GOOGLE_SHEETS_CREDENTIALS")
+    if not credentials_json:
+        raise ValueError("GOOGLE_SHEETS_CREDENTIALS environment variable is missing!")
+
+    creds_dict = json.loads(credentials_json)
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
+
+    client = gspread.authorize(creds)
+    sheet = client.open(SHEET_NAME).sheet1  # Open first sheet
+
+except Exception as e:
+    print(f"❌ Error loading Google Sheets credentials: {e}")
     exit(1)
-
-# 🔹 Load Google Sheets Credentials
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope)
-client = gspread.authorize(creds)
-sheet = client.open(SHEET_NAME).sheet1  # Open the first sheet
 
 # 🔹 Load the trained XGBoost model
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "scpm2.pkl")
@@ -73,82 +78,33 @@ def fetch_real_time_data():
 
     return real_time_values, timestamps
 
-# 🔹 Function to fetch historical lag values using the real-time timestamp as reference
-def fetch_historical_data(site, reference_timestamp, hours_ago):
-    if isinstance(reference_timestamp, str):
-        reference_timestamp = datetime.strptime(reference_timestamp, "%m/%d/%Y %I:%M %p").astimezone(timezone.utc)
-    target_timestamp = reference_timestamp - timedelta(hours=hours_ago)
-    start_time = (target_timestamp - timedelta(minutes=30)).strftime('%Y-%m-%dT%H:%M:%SZ')
-    end_time = (target_timestamp + timedelta(minutes=30)).strftime('%Y-%m-%dT%H:%M:%SZ')
-    
-    url = f"https://waterservices.usgs.gov/nwis/iv/?format=json&sites={site}&parameterCd=00060&startDT={start_time}&endDT={end_time}"
-    response = requests.get(url, headers={"Accept": "application/json"})
-    
-    if response.status_code == 200:
-        try:
-            data = response.json()
-            time_series = data["value"]["timeSeries"][0]
-            values = time_series["values"][0]["value"]
-            
-            closest_value, closest_time = np.nan, "N/A"
-            min_time_diff = float("inf")
-            
-            for entry in values:
-                entry_time = datetime.strptime(entry["dateTime"], "%Y-%m-%dT%H:%M:%S.%f%z").astimezone(timezone.utc)
-                time_diff = abs((entry_time - target_timestamp).total_seconds())
-                
-                if time_diff < min_time_diff:
-                    min_time_diff = time_diff
-                    closest_value = float(entry["value"])
-                    closest_time = entry_time.astimezone().strftime("%m/%d/%Y %I:%M %p")
-            
-            return closest_value, closest_time
-        except (KeyError, IndexError, TypeError, ValueError):
-            return np.nan, "N/A"
-    else:
-        return np.nan, "N/A"
-
 # 🔹 Fetch Real-Time Data
 real_time_data, timestamps = fetch_real_time_data()
 
-# 🔹 Fetch Historical Data
-lag_data = {}
-lag_timestamps = {}
-
-for creek, site in USGS_SITES.items():
-    if timestamps[creek] != "N/A":
-        reference_timestamp = datetime.strptime(timestamps[creek], "%m/%d/%Y %I:%M %p").astimezone(timezone.utc)
-        lag_data[f"{creek}_Lag1"], lag_timestamps[f"{creek}_Lag1"] = fetch_historical_data(site, reference_timestamp, 24)
-        lag_data[f"{creek}_Lag3"], lag_timestamps[f"{creek}_Lag3"] = fetch_historical_data(site, reference_timestamp, 72)
-        lag_data[f"{creek}_Lag7"], lag_timestamps[f"{creek}_Lag7"] = fetch_historical_data(site, reference_timestamp, 168)
-
 # 🔹 Prepare Model Input
-model_input = pd.DataFrame([{**real_time_data, **lag_data}])
+model_input = pd.DataFrame([real_time_data])
 model_input = model_input[[col for col in xgb_model.feature_names_in_]]
 
 # 🔹 Run Prediction
 prediction = xgb_model.predict(model_input)[0]
 
+# 🔹 Save Data to Google Sheets
+# Define the US Central Time Zone
 central_tz = pytz.timezone('America/Chicago')
 
-# Get the current time in Central Time (formatted as a string)
-timestamp_str = datetime.now(timezone.utc).astimezone(central_tz).strftime("%Y-%m-%d %H:%M:%S")
+# Convert UTC to Central Time
+timestamp = datetime.now(timezone.utc).astimezone(central_tz).strftime("%Y-%m-%d %H:%M:%S")
 
-# Authenticate with Google Sheets using the credentials file created by GitHub Actions
-gc = gspread.service_account(filename="gspread_credentials.json")
-sheet = gc.open("sugar_creek_data").sheet1  # Open the sheet by its exact name
-
-# Fetch all existing timestamps (skip header row)
+# ✅ Fetch all existing timestamps to check for duplicates
 existing_data = sheet.get_all_values()
-existing_timestamps = [row[0] for row in existing_data[1:]]  # assuming row[0] is the timestamp
+timestamps = [row[0] for row in existing_data[1:]]  # Skip header row
 
-# Check if the current timestamp already exists
-if timestamp_str in existing_timestamps:
-    # If it exists, update that row
-    row_index = existing_timestamps.index(timestamp_str) + 2  # +2 accounts for header row and 1-indexing
-    sheet.update(f"A{row_index}:C{row_index}", [[timestamp_str, "Sugar_Creek_Prediction", float(prediction)]])
+if timestamp in timestamps:
+    # ✅ If timestamp exists, update the existing row
+    row_index = timestamps.index(timestamp) + 2  # Offset for 1-based index & header
+    sheet.update(f"A{row_index}:C{row_index}", [[timestamp, "Sugar_Creek_Prediction", float(prediction)]])
 else:
-    # If it does not exist, append a new row
-    sheet.append_row([timestamp_str, "Sugar_Creek_Prediction", float(prediction)])
+    # ✅ If timestamp does not exist, append a new row
+    sheet.append_row([timestamp, "Sugar_Creek_Prediction", float(prediction)])
 
 print("✅ Data successfully recorded to Google Sheets.")

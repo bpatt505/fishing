@@ -2,7 +2,7 @@ name: Run Real-Time Prediction Every Hour
 
 on:
   schedule:
-    - cron: "0 * * * *"  # Runs every hour (at minute 0)
+    - cron: "0 * * * *"  # Runs every hour at minute 0
   workflow_dispatch:  # Allows manual execution
 
 jobs:
@@ -23,21 +23,21 @@ jobs:
           pip install -r requirements.txt
           pip install gspread oauth2client xgboost requests numpy pandas
 
-      # ✅ Debugging Step - This will confirm the file structure
+      # ✅ Debugging Step - Confirm File Structure
       - name: Debug Repository Structure
         run: |
           echo "🔍 Current Working Directory: $(pwd)"
           echo "📂 Listing All Files and Folders in Workspace:"
           ls -R $GITHUB_WORKSPACE
 
-      # ✅ Create Google Sheets Credentials File FIRST
+      # ✅ Create Google Sheets Credentials File from GitHub Secrets
       - name: Create Google Sheets Credentials File
         run: |
-          echo "${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}" > gspread_credentials.json
+          echo '${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}' > gspread_credentials.json
 
       # ✅ Run Real-Time Function and Save Data
       - name: Run Real-Time Function and Save Data
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
         run: |
-          python $GITHUB_WORKSPACE/record_real_time.py  # ✅ Corrected Path
+          python $GITHUB_WORKSPACE/record_real_time.py
