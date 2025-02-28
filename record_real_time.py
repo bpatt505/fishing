@@ -127,8 +127,27 @@ prediction = xgb_model.predict(model_input)[0]
 timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
 for creek, value in real_time_data.items():
+import gspread
+from datetime import datetime
 
-    sheet.append_row([timestamp, "Sugar_Creek_Prediction", float(prediction)])
+# ✅ Authenticate with Google Sheets
+gc = gspread.service_account(filename="gspread_credentials.json")
+sheet = gc.open("Your_Spreadsheet_Name").sheet1  # Open first sheet
 
+# ✅ Get the current timestamp in the correct format
+timestamp_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M")  # Ensure format matches Google Sheets
+
+# ✅ Fetch all existing timestamps to check for duplicates
+existing_data = sheet.get_all_values()
+timestamps = [row[0] for row in existing_data[1:]]  # Skip header row
+
+if timestamp_str in timestamps:
+    # ✅ If timestamp exists, update the existing row
+    row_index = timestamps.index(timestamp_str) + 2  # Offset for 1-based index & header
+    sheet.update(f"A{row_index}:C{row_index}", [[timestamp_str, "Sugar_Creek_Prediction", float(prediction)]])
+else:
+    # ✅ If timestamp does not exist, append a new row
+    sheet.append_row([timestamp_str, "Sugar_Creek_Prediction", float(prediction)])
 
 print("✅ Data successfully recorded to Google Sheets.")
+
