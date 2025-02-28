@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 
 # 🔹 Google Sheets Configuration
 SHEET_NAME = "sugar_creek_data"
-CREDENTIALS_FILE = "gspread_credentials.json"  # Ensure this file is in your repo!
+CREDENTIALS_FILE = "gspread_credentials.json"
 
 # 🔹 Load Google Sheets Credentials
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -29,50 +29,54 @@ except FileNotFoundError:
     print("❌ Model file 'scpm2.pkl' not found.")
     exit(1)
 
-# 🔹 USGS API URLs (Sugar Creek's site ID)
-SUGAR_CREEK_SITE = "03588500"  # Update this to the correct Sugar Creek USGS site ID
+# 🔹 USGS Creek Sites (same ones used in the model)
+USGS_SITES = {
+    "Shoal_Creek": "03588500",
+    "Big_Nance_Creek": "03586500",
+    "Limestone_Creek": "03576250",
+    "Swan_Creek": "03577225",
+}
 
 # 🔹 Function to fetch real-time USGS CFS readings and timestamps
 def fetch_real_time_data():
-    url = f"https://waterservices.usgs.gov/nwis/iv/?format=json&sites={SUGAR_CREEK_SITE}&parameterCd=00060"
-    response = requests.get(url, headers={"Accept": "application/json"})
+    real_time_values = {}
+    timestamps = {}
 
-    if response.status_code == 200:
-        try:
-            data = response.json()
-            time_series = data["value"]["timeSeries"][0]
-            latest_value_entry = time_series["values"][0]["value"][0]
+    for creek, site in USGS_SITES.items():
+        url = f"https://waterservices.usgs.gov/nwis/iv/?format=json&sites={site}&parameterCd=00060"
+        response = requests.get(url, headers={"Accept": "application/json"})
 
-            # Extract flow value
-            sugar_creek_flow = float(latest_value_entry["value"])
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                time_series = data["value"]["timeSeries"][0]
+                latest_value_entry = time_series["values"][0]["value"][0]
 
-            # Extract & convert timestamp from UTC to Central Time
-            raw_timestamp = latest_value_entry["dateTime"]
-            parsed_timestamp = datetime.strptime(raw_timestamp, "%Y-%m-%dT%H:%M:%S.%f%z")
-            central_tz = pytz.timezone("America/Chicago")
-            formatted_timestamp = parsed_timestamp.astimezone(central_tz).strftime("%Y-%m-%d %H:%M:%S")
+                real_time_values[creek] = float(latest_value_entry["value"])
+                raw_timestamp = latest_value_entry["dateTime"]
 
-            return sugar_creek_flow, formatted_timestamp
-        except (KeyError, IndexError, TypeError, ValueError):
-            return np.nan, "N/A"
-    else:
-        return np.nan, "N/A"
+                # Convert to UTC and then to Central Time
+                parsed_timestamp = datetime.strptime(raw_timestamp, "%Y-%m-%dT%H:%M:%S.%f%z")
+                central_tz = pytz.timezone("America/Chicago")
+                formatted_timestamp = parsed_timestamp.astimezone(central_tz).strftime("%Y-%m-%d %H:%M:%S")
 
-# 🔹 Fetch Real-Time Data
-sugar_creek_cfs, timestamp_str = fetch_real_time_data()
+                timestamps[creek] = formatted_timestamp
+            except (KeyError, IndexError, TypeError, ValueError):
+                real_time_values[creek] = np.nan
+                timestamps[creek] = "N/A"
+        else:
+            real_time_values[creek] = np.nan
+            timestamps[creek] = "N/A"
 
-# 🔹 Ensure data is valid before proceeding
-if sugar_creek_cfs == np.nan or timestamp_str == "N/A":
-    print("❌ Failed to fetch valid USGS data. Exiting.")
-    exit(1)
+    return real_time_values, timestamps
 
-# 🔹 Fetch Historical Data for Lag Values
-def fetch_historical_data(reference_timestamp, hours_ago):
+# 🔹 Fetch Historical Data
+def fetch_historical_data(site, reference_timestamp, hours_ago):
     target_timestamp = datetime.strptime(reference_timestamp, "%Y-%m-%d %H:%M:%S") - timedelta(hours=hours_ago)
     start_time = (target_timestamp - timedelta(minutes=30)).strftime('%Y-%m-%dT%H:%M:%SZ')
     end_time = (target_timestamp + timedelta(minutes=30)).strftime('%Y-%m-%dT%H:%M:%SZ')
 
-    url = f"https://waterservices.usgs.gov/nwis/iv/?format=json&sites={SUGAR_CREEK_SITE}&parameterCd=00060&startDT={start_time}&endDT={end_time}"
+    url = f"https://waterservices.usgs.gov/nwis/iv/?format=json&sites={site}&parameterCd=00060&startDT={start_time}&endDT={end_time}"
     response = requests.get(url, headers={"Accept": "application/json"})
 
     if response.status_code == 200:
@@ -81,8 +85,7 @@ def fetch_historical_data(reference_timestamp, hours_ago):
             time_series = data["value"]["timeSeries"][0]
             values = time_series["values"][0]["value"]
 
-            closest_value, closest_time = np.nan, "N/A"
-            min_time_diff = float("inf")
+            closest_value, min_time_diff = np.nan, float("inf")
 
             for entry in values:
                 entry_time = datetime.strptime(entry["dateTime"], "%Y-%m-%dT%H:%M:%S.%f%z").astimezone(pytz.utc)
@@ -91,7 +94,6 @@ def fetch_historical_data(reference_timestamp, hours_ago):
                 if time_diff < min_time_diff:
                     min_time_diff = time_diff
                     closest_value = float(entry["value"])
-                    closest_time = entry_time.astimezone(pytz.timezone("America/Chicago")).strftime("%Y-%m-%d %H:%M:%S")
 
             return closest_value
         except (KeyError, IndexError, TypeError, ValueError):
@@ -99,18 +101,25 @@ def fetch_historical_data(reference_timestamp, hours_ago):
     else:
         return np.nan
 
-# 🔹 Fetch historical lag values
-lag_1 = fetch_historical_data(timestamp_str, 24)
-lag_3 = fetch_historical_data(timestamp_str, 72)
-lag_7 = fetch_historical_data(timestamp_str, 168)
+# 🔹 Fetch Real-Time Data
+real_time_data, timestamps = fetch_real_time_data()
 
-# 🔹 Prepare Model Input (Ensure all required features are present)
-model_input = pd.DataFrame([{
-    "Shoal_Creek": sugar_creek_cfs,
-    "Shoal_Creek_Lag1": lag_1,
-    "Shoal_Creek_Lag3": lag_3,
-    "Shoal_Creek_Lag7": lag_7
-}])
+# 🔹 Ensure we have a valid timestamp (Shoal Creek used as reference)
+reference_timestamp = timestamps.get("Shoal_Creek", "N/A")
+if reference_timestamp == "N/A":
+    print("❌ No valid timestamp found. Exiting.")
+    exit(1)
+
+# 🔹 Fetch historical lag values for **all relevant creeks**
+lag_data = {}
+for creek, site in USGS_SITES.items():
+    if reference_timestamp != "N/A":
+        lag_data[f"{creek}_Lag1"] = fetch_historical_data(site, reference_timestamp, 24)
+        lag_data[f"{creek}_Lag3"] = fetch_historical_data(site, reference_timestamp, 72)
+        lag_data[f"{creek}_Lag7"] = fetch_historical_data(site, reference_timestamp, 168)
+
+# 🔹 Prepare Model Input
+model_input = pd.DataFrame([{**real_time_data, **lag_data}])
 
 # Ensure model input matches trained model's expected features
 for feature in xgb_model.feature_names_in_:
@@ -123,14 +132,13 @@ model_input = model_input[xgb_model.feature_names_in_]
 # 🔹 Run Prediction
 prediction = xgb_model.predict(model_input)[0]
 
-# 🔹 Check for duplicates in Google Sheets before appending
+# 🔹 Store only Sugar Creek data in Google Sheets
 existing_data = sheet.get_all_values()
 timestamps_in_sheet = [row[0] for row in existing_data[1:]]  # Skip header row
 
-if timestamp_str not in timestamps_in_sheet:
-    # ✅ Append new row with only Timestamp and Predicted Sugar Creek CFS
-    sheet.append_row([timestamp_str, float(prediction)])
-    print(f"✅ Recorded: {timestamp_str} - Sugar Creek Prediction: {prediction:.2f} CFS")
+if reference_timestamp not in timestamps_in_sheet:
+    # ✅ Append only one row per prediction
+    sheet.append_row([reference_timestamp, float(prediction)])
+    print(f"✅ Recorded: {reference_timestamp} - Sugar Creek Prediction: {prediction:.2f} CFS")
 else:
-    print(f"⚠️ Duplicate entry detected. Skipping {timestamp_str}")
-
+    print(f"⚠️ Duplicate entry detected. Skipping {reference_timestamp}")
