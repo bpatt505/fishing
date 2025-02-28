@@ -8,12 +8,6 @@ from datetime import datetime, timedelta, timezone
 
 st.set_page_config(page_title="Sugar Creek Data Lookup", page_icon="🎣")
 
-st.title("Welcome to the Fishing Data Lookup App!")
-st.write(
-    "Use the sidebar to navigate between real-time lookup and historical data analysis."
-)
-
-
 # ✅ Load the trained XGBoost model (Ensure correct path)
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "scpm2.pkl")
 
