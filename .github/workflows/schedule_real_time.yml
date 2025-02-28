@@ -30,16 +30,10 @@ jobs:
           echo "📂 Listing All Files and Folders in Workspace:"
           ls -R $GITHUB_WORKSPACE
 
-      # ✅ Ensure Google Sheets Credentials File is Correctly Written
+      # ✅ Create Google Sheets Credentials File FIRST
       - name: Create Google Sheets Credentials File
-        run: echo '${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}' > gspread_credentials.json
-
-      # ✅ Debug Google Sheets Credentials File
-      - name: Debug Google Sheets Credentials File
         run: |
-          echo "🔍 Checking credentials file..."
-          ls -lah gspread_credentials.json
-          cat gspread_credentials.json || echo "❌ File is empty!"
+          echo "${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}" > gspread_credentials.json
 
       # ✅ Run Real-Time Function and Save Data
       - name: Run Real-Time Function and Save Data
