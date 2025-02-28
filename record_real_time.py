@@ -124,13 +124,13 @@ model_input = model_input[[col for col in xgb_model.feature_names_in_]]
 prediction = xgb_model.predict(model_input)[0]
 
 # 🔹 Save Data to Google Sheets
-timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+timestamp = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 # Run Prediction
 prediction = xgb_model.predict(model_input)[0]
 
 # Save Data to Google Sheets
-timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+timestamp = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 # ✅ Authenticate with Google Sheets
 gc = gspread.service_account(filename="gspread_credentials.json")
