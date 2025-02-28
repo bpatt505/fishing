@@ -6,6 +6,7 @@ import requests
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import xgboost as xgb
+import pytz
 from datetime import datetime, timezone, timedelta
 
 # 🔹 Google Sheets Configuration
@@ -129,15 +130,21 @@ timestamp = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S"
 # Run Prediction
 prediction = xgb_model.predict(model_input)[0]
 
-# Save Data to Google Sheets
-timestamp = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+# Define the US Central Time Zone
+central_tz = pytz.timezone('America/Chicago')
+
+# Convert UTC to Central Time
+timestamp = datetime.now(timezone.utc).astimezone(central_tz).strftime("%Y-%m-%d %H:%M:%S")
 
 # ✅ Authenticate with Google Sheets
 gc = gspread.service_account(filename="gspread_credentials.json")
 sheet = gc.open("sugar_creek_data").sheet1  # Open first sheet
 
-# ✅ Get the current timestamp in the correct format
-timestamp_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M")  # Ensure format matches Google Sheets
+# Define the US Central Time Zone
+central_tz = pytz.timezone('America/Chicago')
+
+# Convert UTC to Central Time
+timestamp = datetime.now(timezone.utc).astimezone(central_tz).strftime("%Y-%m-%d %H:%M:%S")
 
 # ✅ Fetch all existing timestamps to check for duplicates
 existing_data = sheet.get_all_values()
