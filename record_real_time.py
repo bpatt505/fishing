@@ -134,7 +134,7 @@ timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
 # ✅ Authenticate with Google Sheets
 gc = gspread.service_account(filename="gspread_credentials.json")
-sheet = gc.open("Your_Spreadsheet_Name").sheet1  # Open first sheet
+sheet = gc.open("sugar_creek_data").sheet1  # Open first sheet
 
 # ✅ Get the current timestamp in the correct format
 timestamp_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M")  # Ensure format matches Google Sheets
