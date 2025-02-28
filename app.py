@@ -4,12 +4,23 @@ import pandas as pd
 import numpy as np
 import requests
 import os
+import subprocess
 from datetime import datetime, timedelta, timezone
 
 st.set_page_config(page_title="Sugar Creek Data Lookup", page_icon="🎣")
 
-# ✅ Load the trained XGBoost model (Ensure correct path)
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "scpm2.pkl")
+# Ensure xgboost is installed
+try:
+    import xgboost
+except ModuleNotFoundError:
+    st.warning("⚠️ XGBoost not found. Installing now...")
+    subprocess.run(["pip", "install", "xgboost"], check=True)
+    import xgboost
+    st.success("✅ XGBoost installed successfully!")
+
+# Get the absolute path of the script's directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "scpm2.pkl")
 
 # Load the model safely
 try:
