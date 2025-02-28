@@ -23,18 +23,16 @@ jobs:
           pip install -r requirements.txt
           pip install gspread oauth2client xgboost requests numpy pandas
 
-      # ✅ Debugging Step - This will list all files in the workspace
-      - name: Debug File Paths
+      # ✅ Debugging Step - This will confirm the file structure
+      - name: Debug Repository Structure
         run: |
-          echo "🔍 Current working directory: $(pwd)"
-          echo "📂 Listing all files in workspace:"
+          echo "🔍 Current Working Directory: $(pwd)"
+          echo "📂 Listing All Files and Folders in Workspace:"
           ls -R $GITHUB_WORKSPACE
-          echo "🔎 Checking for gspread_credentials.json:"
-          ls -l gspread_credentials.json || echo "❌ gspread_credentials.json NOT FOUND!"
 
       - name: Run Real-Time Function and Save Data
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
         run: |
           echo "$GOOGLE_APPLICATION_CREDENTIALS" > gspread_credentials.json
-          python record_real_time.py
+          python $GITHUB_WORKSPACE/record_real_time.py  # ✅ Corrected Path
