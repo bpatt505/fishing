@@ -126,8 +126,12 @@ prediction = xgb_model.predict(model_input)[0]
 # 🔹 Save Data to Google Sheets
 timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
-for creek, value in real_time_data.items():
-    
+# Run Prediction
+prediction = xgb_model.predict(model_input)[0]
+
+# Save Data to Google Sheets
+timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
 # ✅ Authenticate with Google Sheets
 gc = gspread.service_account(filename="gspread_credentials.json")
 sheet = gc.open("Your_Spreadsheet_Name").sheet1  # Open first sheet
