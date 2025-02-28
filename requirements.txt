@@ -7,3 +7,4 @@ requests
 schedule
 matplotlib
 xgboost
+plotly
