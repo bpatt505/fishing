@@ -1,0 +1,9 @@
+streamlit
+numpy
+pandas
+gspread
+oauth2client
+requests
+schedule
+matplotlib
+xgboost
