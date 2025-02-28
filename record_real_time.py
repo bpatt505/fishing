@@ -13,6 +13,11 @@ from datetime import datetime, timezone, timedelta
 SHEET_NAME = "sugar_creek_data"
 CREDENTIALS_FILE = "gspread_credentials.json"  # Ensure this file is in your repo!
 
+# ✅ Check if credentials file exists and is not empty
+if not os.path.exists(CREDENTIALS_FILE) or os.stat(CREDENTIALS_FILE).st_size == 0:
+    print("❌ Google Sheets credentials file is missing or empty.")
+    exit(1)
+
 # 🔹 Load Google Sheets Credentials
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope)
