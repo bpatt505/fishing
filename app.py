@@ -57,8 +57,9 @@ def fetch_real_time_data():
                 raw_timestamp = latest_value_entry["dateTime"]
                 
                 # Convert timezone-aware timestamp to UTC
-                parsed_timestamp = datetime.strptime(raw_timestamp, "%Y-%m-%dT%H:%M:%S.%f%z").astimezone(timezone.utc)
-                formatted_timestamp = parsed_timestamp.astimezone().strftime("%m/%d/%Y %I:%M %p")
+                parsed_timestamp = datetime.strptime(raw_timestamp, "%Y-%m-%dT%H:%M:%S.%f%z")
+                formatted_timestamp = parsed_timestamp.strftime("%m/%d/%Y %I:%M %p")
+
                 timestamps[creek] = formatted_timestamp
             except (KeyError, IndexError, TypeError, ValueError) as e:
                 real_time_values[creek] = np.nan
