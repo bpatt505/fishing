@@ -127,6 +127,8 @@ prediction = xgb_model.predict(model_input)[0]
 timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
 for creek, value in real_time_data.items():
-    sheet.append_row([timestamp, creek, float(value), float(prediction)])
+
+    sheet.append_row([timestamp, "Sugar_Creek_Prediction", float(prediction)])
+
 
 print("✅ Data successfully recorded to Google Sheets.")
