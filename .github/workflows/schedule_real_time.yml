@@ -23,18 +23,18 @@ jobs:
           pip install -r requirements.txt
           pip install gspread oauth2client xgboost requests numpy pandas
 
-      # ✅ Debugging Step - Check File Structure
+      # ✅ Debugging Step - This will confirm the file structure
       - name: Debug Repository Structure
         run: |
           echo "🔍 Current Working Directory: $(pwd)"
           echo "📂 Listing All Files and Folders in Workspace:"
           ls -R $GITHUB_WORKSPACE
 
-      # ✅ Create Google Sheets Credentials File
+      # ✅ Ensure Google Sheets Credentials File is Correctly Written
       - name: Create Google Sheets Credentials File
-        run: echo "$GOOGLE_SHEETS_CREDENTIALS" > gspread_credentials.json
+        run: echo '${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}' > gspread_credentials.json
 
-      # ✅ Debug Google Sheets Credentials File (NEW STEP)
+      # ✅ Debug Google Sheets Credentials File
       - name: Debug Google Sheets Credentials File
         run: |
           echo "🔍 Checking credentials file..."
